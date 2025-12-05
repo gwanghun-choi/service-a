@@ -1,3 +1,9 @@
+#  docker-build.yml (GitHub Actions)
+#  git push 이벤트 감지
+#  ./gradlew clean bootJar 로 소스 빌드
+#  docker build 로 Dockerfile 읽어서 이미지 생성
+#  docker push 로 GHCR에 업로드
+
 name: Build and Push Docker Image (service-a)
 
 on:
