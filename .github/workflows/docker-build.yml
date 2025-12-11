@@ -9,82 +9,84 @@ permissions:
   packages: write
 
 jobs:
-  build-push-deploy:
+  # ───────────────────────────────
+  # 1) CI: 이미지 빌드 & GHCR 푸시
+  # ───────────────────────────────
+  build-and-push:
     runs-on: ubuntu-latest
 
     env:
       REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository_owner }}/service-a   # ghcr.io/<owner>/service-a
-      K8S_DEPLOYMENT: service-a                              # kubectl get deploy service-a
-      K8S_CONTAINER: service-a                               # Deployment 안 container 이름
+      IMAGE_NAME: ${{ github.repository_owner }}/service-a
+
+    outputs:
+      image_sha: ${{ steps.set-vars.outputs.IMAGE_SHA }}
 
     steps:
-      # 1) 소스 체크아웃
       - name: Checkout source
         uses: actions/checkout@v4
 
-      # 2) JDK 17 세팅
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: "17"
           distribution: "temurin"
 
-      # 3) gradlew 실행 권한
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      # 4) Gradle로 JAR 빌드
       - name: Build JAR with Gradle
         run: ./gradlew clean bootJar
 
-      # 5) GHCR 로그인
       - name: Login to GHCR
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "${GITHUB_TOKEN}" | docker login $REGISTRY -u "${{ github.actor }}" --password-stdin
 
-      # 6) Docker 이미지 빌드 & 푸시 (SHA 태그 + main 태그)
-      - name: Build & Push Docker image
+      # 이미지 태그 계산 (SHA 태그)
+      - name: Set image tags
+        id: set-vars
         run: |
           IMAGE_SHA=${REGISTRY}/${IMAGE_NAME}:${GITHUB_SHA}
+          echo "IMAGE_SHA=$IMAGE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Build & Push Docker image
+        run: |
+          IMAGE_SHA=${{ steps.set-vars.outputs.IMAGE_SHA }}
           IMAGE_LATEST=${REGISTRY}/${IMAGE_NAME}:main
 
           echo "Build image: $IMAGE_SHA"
-          docker build -t $IMAGE_SHA .
+          docker build -t "$IMAGE_SHA" .
 
           echo "Tag as main"
-          docker tag $IMAGE_SHA $IMAGE_LATEST
+          docker tag "$IMAGE_SHA" "$IMAGE_LATEST"
 
           echo "Push both tags"
-          docker push $IMAGE_SHA
-          docker push $IMAGE_LATEST
+          docker push "$IMAGE_SHA"
+          docker push "$IMAGE_LATEST"
 
-      # 7) kubectl 설치
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: "v1.30.0"
+  # ───────────────────────────────
+  # 2) CD: NCP self-hosted runner에서 배포
+  # ───────────────────────────────
+  deploy:
+    needs: build-and-push
+    runs-on: [self-hosted]    # config.sh에서 만든 runner 사용
 
-      # 8) kubeconfig 설정 (KUBE_CONFIG 시크릿에서 읽어옴)
-      - name: Setup kubeconfig
+    env:
+      K8S_DEPLOYMENT: service-a
+      K8S_CONTAINER: service-a
+      IMAGE_SHA: ${{ needs.build-and-push.outputs.image_sha }}
+
+    steps:
+      - name: Show kubectl context
         run: |
-          mkdir -p $HOME/.kube
-          echo "${KUBE_CONFIG}" > $HOME/.kube/config
-        env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-
-      # 9) 클러스터 연결 확인 (옵션)
-      - name: Check cluster connection
-        run: |
-          kubectl version
+          echo "Deploying image: $IMAGE_SHA"
+          kubectl config current-context || echo "no current-context"
           kubectl get nodes
 
-      # 10) Deployment 이미지 교체 + RollingUpdate 완료 대기
-      - name: Update deployment image and rollout
+      - name: Rollout deployment
         run: |
-          IMAGE_SHA=${REGISTRY}/${IMAGE_NAME}:${GITHUB_SHA}
           kubectl set image deployment/${K8S_DEPLOYMENT} \
-            ${K8S_CONTAINER}=$IMAGE_SHA --record
+            ${K8S_CONTAINER}=${IMAGE_SHA} --record
           kubectl rollout status deployment/${K8S_DEPLOYMENT}

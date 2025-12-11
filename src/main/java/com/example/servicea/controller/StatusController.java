@@ -16,12 +16,11 @@ public class StatusController {
     @GetMapping("/a/status")
     public String status() {
         String bStatus = restTemplate.getForObject(serviceBUrl + "/b/status", String.class);
-        return "A OK | B: " + bStatus;
+        return "[v2] A OK | B: " + bStatus;
     }
 
     @GetMapping("/a/health")
     public String health() {
-        System.out.println("Commit을 위한 테스트 Print, 추구 삭제");
         return "200";
     }
 }
