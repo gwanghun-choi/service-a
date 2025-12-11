@@ -21,6 +21,7 @@ public class StatusController {
 
     @GetMapping("/a/health")
     public String health() {
+        System.out.println("Commit을 위한 테스트 Print, 추구 삭제");
         return "200";
     }
 }
