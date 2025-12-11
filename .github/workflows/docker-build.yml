@@ -78,7 +78,7 @@ jobs:
       # 9) 클러스터 연결 확인 (옵션)
       - name: Check cluster connection
         run: |
-          kubectl version --short
+          kubectl version
           kubectl get nodes
 
       # 10) Deployment 이미지 교체 + RollingUpdate 완료 대기
