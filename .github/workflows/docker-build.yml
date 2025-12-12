@@ -1,4 +1,4 @@
-name: Build, Push and Deploy (service-a)
+name: Build, Push and GitOps Deploy (service-a)
 
 on:
   push:
@@ -9,48 +9,48 @@ permissions:
   packages: write
 
 jobs:
-  # ───────────────────────────────
-  # 1) CI: 이미지 빌드 & GHCR 푸시
-  # ───────────────────────────────
-  build-and-push:
+  build-and-gitops:
     runs-on: ubuntu-latest
 
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/service-a
 
-    outputs:
-      image_sha: ${{ steps.set-vars.outputs.IMAGE_SHA }}
-
     steps:
+      # 1) 소스 코드 체크아웃
       - name: Checkout source
         uses: actions/checkout@v4
 
+      # 2) JDK 17 설정
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: "17"
           distribution: "temurin"
 
+      # 3) gradlew 실행 권한 + 빌드
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
       - name: Build JAR with Gradle
         run: ./gradlew clean bootJar
 
+      # 4) GHCR 로그인
       - name: Login to GHCR
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "${GITHUB_TOKEN}" | docker login $REGISTRY -u "${{ github.actor }}" --password-stdin
 
-      # 이미지 태그 계산 (SHA 태그)
+      # 5) 이미지 태그(SHA) 계산
       - name: Set image tags
         id: set-vars
         run: |
           IMAGE_SHA=${REGISTRY}/${IMAGE_NAME}:${GITHUB_SHA}
           echo "IMAGE_SHA=$IMAGE_SHA" >> "$GITHUB_OUTPUT"
+          echo "IMAGE_SHA=$IMAGE_SHA" >> "$GITHUB_ENV"
 
+      # 6) Docker 이미지 빌드 & push (SHA + main)
       - name: Build & Push Docker image
         run: |
           IMAGE_SHA=${{ steps.set-vars.outputs.IMAGE_SHA }}
@@ -66,27 +66,42 @@ jobs:
           docker push "$IMAGE_SHA"
           docker push "$IMAGE_LATEST"
 
-  # ───────────────────────────────
-  # 2) CD: NCP self-hosted runner에서 배포
-  # ───────────────────────────────
-  deploy:
-    needs: build-and-push
-    runs-on: [self-hosted]    # config.sh에서 만든 runner 사용
-
-    env:
-      K8S_DEPLOYMENT: service-a
-      K8S_CONTAINER: service-a
-      IMAGE_SHA: ${{ needs.build-and-push.outputs.image_sha }}
-
-    steps:
-      - name: Show kubectl context
+      # 7) GitOps repo(msa-gitops) 클론
+      - name: Clone GitOps repo
         run: |
-          echo "Deploying image: $IMAGE_SHA"
-          kubectl config current-context || echo "no current-context"
-          kubectl get nodes
+          git clone https://github.com/gwanghun-choi/msa-gitops.git
 
-      - name: Rollout deployment
+      # 8) k8s/service-a/manifest.yaml 의 image 태그를 새 SHA로 변경
+      - name: Update manifest image tag (service-a)
         run: |
-          kubectl set image deployment/${K8S_DEPLOYMENT} \
-            ${K8S_CONTAINER}=${IMAGE_SHA} --record
-          kubectl rollout status deployment/${K8S_DEPLOYMENT}
+          cd msa-gitops/k8s/service-a
+
+          echo "Before:"
+          grep 'image:' manifest.yaml || true
+
+          sed -i "s|^\\s*image: .*|          image: ${IMAGE_SHA}|" manifest.yaml
+
+          echo "After:"
+          grep 'image:' manifest.yaml || true
+
+      # 9) 변경사항 commit & push
+      - name: Commit & Push change to GitOps repo
+        env:
+          TOKEN: ${{ secrets.OPS_TOKEN }}
+        run: |
+          cd msa-gitops
+
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+
+          git add k8s/service-a/manifest.yaml
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          COMMIT_MSG="Update service-a image to ${IMAGE_SHA}"
+          git commit -m "$COMMIT_MSG"
+
+          git push https://$TOKEN@github.com/gwanghun-choi/msa-gitops.git HEAD:main
