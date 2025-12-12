@@ -16,7 +16,7 @@ public class StatusController {
     @GetMapping("/a/status")
     public String status() {
         String bStatus = restTemplate.getForObject(serviceBUrl + "/b/status", String.class);
-        return "[v2] A OK | B: " + bStatus;
+        return "[v3] A OK | B: " + bStatus;
     }
 
     @GetMapping("/a/health")
