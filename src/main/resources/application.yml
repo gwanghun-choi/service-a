@@ -1,5 +1,16 @@
 server:
   port: 8081
 
-service-b:
-  url: http://localhost:8082
+spring:
+  datasource:
+    primary:
+      driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+      jdbc-url: jdbc:sqlserver://${DB_HOST}:${DB_PORT};databaseName=${DB_NAME};encrypt=true;trustServerCertificate=true
+      username: ${DB_USER}
+      password: ${DB_PASSWORD}
+      max-pool-size: 5
+
+mybatis:
+  type-aliases-package: com.example.servicea.vo
+  configuration:
+    map-underscore-to-camel-case: true
