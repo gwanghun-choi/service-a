@@ -22,7 +22,7 @@ public class StatusController {
 
     @GetMapping("/a/health")
     public String health() {
-        return "200";
+        return "[v2] 200";
     }
 
 }
