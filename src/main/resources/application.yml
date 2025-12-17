@@ -1,5 +1,17 @@
+# src/main/resources/application.yml (service-a)
+
 server:
   port: 8081
 
 service-b:
-  url: http://localhost:8082
+  # env에 SERVICE_B_URL 있으면 그 값 사용, 없으면 localhost:8082
+  url: ${SERVICE_B_URL:http://localhost:8082}
+
+datasource:
+  primary:
+    db-type: ${DATASOURCE_PRIMARY_DB_TYPE}
+    driver-class-name: ${DATASOURCE_PRIMARY_DRIVER_CLASS_NAME}
+    jdbc-url: ${DATASOURCE_PRIMARY_JDBC_URL}
+    username: ${DATASOURCE_PRIMARY_USERNAME}
+    password: ${DATASOURCE_PRIMARY_PASSWORD}
+    maxpoolsize: ${DATASOURCE_PRIMARY_MAXPOOLSIZE}

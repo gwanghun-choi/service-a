@@ -1,13 +1,25 @@
 package com.example.servicea.controller;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+
 
 @RestController
 public class StatusController {
+
+    private final DataSource primaryDataSource;
+
+    public StatusController(DataSource primaryDataSource) {
+        this.primaryDataSource = primaryDataSource;
+    }
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -25,4 +37,26 @@ public class StatusController {
         return "200";
     }
 
+    @GetMapping("/a/dbtest")
+    public ResponseEntity<String> dbTest() {
+        String sql = "SELECT 1";
+
+        try (Connection conn = primaryDataSource.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            if (rs.next()) {
+                int value = rs.getInt(1);
+                return ResponseEntity.ok("DB OK, result=" + value);
+            } else {
+                return ResponseEntity.internalServerError()
+                        .body("DB FAIL: no rows");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body("DB ERROR: " + e.getMessage());
+        }
+    }
 }
