@@ -17,12 +17,12 @@ public class StatusController {
     @GetMapping("/a/status")
     public String status() {
         String bStatus = restTemplate.getForObject(serviceBUrl + "/b/status", String.class);
-        return "[v3] A OK | B: " + bStatus;
+        return "A OK | B: " + bStatus;
     }
 
     @GetMapping("/a/health")
     public String health() {
-        return "[v2] 200";
+        return "200";
     }
 
 }
