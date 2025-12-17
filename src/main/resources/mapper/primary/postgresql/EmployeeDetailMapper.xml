@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.servicea.mapper.primary.EmployeeDetailMapper">
+
+    <!-- employee_id 기준 단건 조회 -->
+    <select id="selectEmployeeDetailById" parameterType="string" resultType="com.example.servicea.vo.EmployeeDetailVO">
+        SELECT
+            employee_id,
+            instead_approver,
+            instead_start_date,
+            instead_end_date,
+            check_attendance_yn,
+            check_attendance_method
+        FROM gw.employee_detail
+        WHERE employee_id = #{employeeId}
+    </select>
+
+</mapper>

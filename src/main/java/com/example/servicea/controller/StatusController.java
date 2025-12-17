@@ -1,5 +1,7 @@
 package com.example.servicea.controller;
 
+import com.example.servicea.service.EmployeeDetailService;
+import com.example.servicea.vo.EmployeeDetailVO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,9 +18,11 @@ import java.sql.ResultSet;
 public class StatusController {
 
     private final DataSource primaryDataSource;
+    private final EmployeeDetailService employeeDetailService;
 
-    public StatusController(DataSource primaryDataSource) {
+    public StatusController(DataSource primaryDataSource, EmployeeDetailService employeeDetailService) {
         this.primaryDataSource = primaryDataSource;
+        this.employeeDetailService = employeeDetailService;
     }
 
     private final RestTemplate restTemplate = new RestTemplate();
@@ -58,5 +62,15 @@ public class StatusController {
             return ResponseEntity.internalServerError()
                     .body("DB ERROR: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/a/employee-detail")
+    public ResponseEntity<EmployeeDetailVO> getEmployeeDetail() {
+        String employeeId = "030473"; // 테스트용 하드코딩
+        EmployeeDetailVO vo = employeeDetailService.getEmployeeDetailById(employeeId);
+        if (vo == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(vo);
     }
 }
