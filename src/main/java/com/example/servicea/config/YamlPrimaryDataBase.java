@@ -38,10 +38,7 @@ public class YamlPrimaryDataBase {
     }
 
     @Bean
-    public SqlSessionFactory primarySqlSessionFactory(
-            @Qualifier("primaryDataSource") DataSource dataSource,
-            @Value("${datasource.primary.db-type}") String dbType
-    ) throws Exception {
+    public SqlSessionFactory primarySqlSessionFactory(@Qualifier("primaryDataSource") DataSource dataSource, @Value("${datasource.primary.db-type}") String dbType) throws Exception {
         SqlSessionFactoryBean sqlSessionFactoryBean = new SqlSessionFactoryBean();
         sqlSessionFactoryBean.setDataSource(dataSource);
 
